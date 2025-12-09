@@ -28,13 +28,17 @@ def _handle_response(response: requests.Response) -> dict:
         If the response status code is not 200 or JSON decoding fails.
     """
     try:
+        # This may raise requests.HTTPError OR a generic Exception (in tests we mock it).
         response.raise_for_status()
-    except requests.HTTPError as exc:
-        raise ChuckAPIError(f"API request failed with status {response.status_code}") from exc
+    except Exception as exc:
+        # Catch ANY error from raise_for_status and wrap it in ChuckAPIError
+        status = getattr(response, "status_code", "unknown")
+        raise ChuckAPIError(f"API request failed (status: {status})") from exc
 
     try:
         return response.json()
-    except ValueError as exc:
+    except Exception as exc:
+        # Any JSON decoding or unexpected error
         raise ChuckAPIError("Failed to decode JSON from API response") from exc
 
 
