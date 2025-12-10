@@ -1,10 +1,14 @@
-"""
-Command-line interface for the Chuck Norris Jokes CLI application.
+"""Command-line interface for the Chuck Norris Jokes CLI application.
 
 Run with:
     python -m src.main <command> [options]
-"""
 
+This CLI lets users:
+- Get a random Chuck Norris joke
+- List all available joke categories
+- Search for jokes by keyword
+- Get a random joke from a specific category
+"""
 from __future__ import annotations
 
 import argparse
@@ -14,8 +18,7 @@ from . import api
 
 
 def _print_jokes(jokes: List[str]) -> None:
-    """
-    Print one or more jokes with simple formatting.
+    """Print one or more jokes with simple formatting.
 
     Parameters
     ----------
@@ -32,13 +35,17 @@ def _print_jokes(jokes: List[str]) -> None:
 
     for idx, joke in enumerate(jokes, start=1):
         print(f"[{idx}] {joke}")
-        print("-" * 40)
+    print("-" * 40)
 
 
 def random_command(args: argparse.Namespace) -> None:
-    """Handle the 'random' subcommand."""
+    """Handle the 'random' subcommand.
+
+    If a category is provided, fetch a random joke from that category.
+    Otherwise, fetch a completely random joke.
+    """
     try:
-        if args.category:
+        if getattr(args, "category", None):
             joke = api.get_random_from_category(args.category)
         else:
             joke = api.get_random_joke()
@@ -48,12 +55,16 @@ def random_command(args: argparse.Namespace) -> None:
 
 
 def categories_command(_args: argparse.Namespace) -> None:
-    """Handle the 'categories' subcommand."""
+    """Handle the 'categories' subcommand.
+
+    Fetch and print all available Chuck Norris joke categories.
+    """
     try:
         categories = api.get_categories()
         if not categories:
             print("No categories found.")
             return
+
         print("Available categories:")
         for cat in categories:
             print(f"- {cat}")
@@ -62,7 +73,13 @@ def categories_command(_args: argparse.Namespace) -> None:
 
 
 def search_command(args: argparse.Namespace) -> None:
-    """Handle the 'search' subcommand."""
+    """Handle the 'search' subcommand.
+
+    Parameters
+    ----------
+    args : argparse.Namespace
+        Parsed arguments that include the search query and optional limit.
+    """
     try:
         jokes = api.search_jokes(args.query, limit=args.limit)
         _print_jokes(jokes)
@@ -70,17 +87,36 @@ def search_command(args: argparse.Namespace) -> None:
         print(f"Error: {exc}")
 
 
-def build_parser() -> argparse.ArgumentParser:
+def from_category_command(args: argparse.Namespace) -> None:
+    """Handle the 'from-category' subcommand.
+
+    Fetch a random joke from a specific category.
+
+    Parameters
+    ----------
+    args : argparse.Namespace
+        Parsed arguments that include the category name.
     """
-    Build and return the top-level argument parser.
+    try:
+        joke = api.get_random_from_category(args.category)
+        _print_jokes([joke])
+    except api.ChuckAPIError as exc:
+        print(f"Error: {exc}")
+
+
+def build_parser() -> argparse.ArgumentParser:
+    """Build and return the top-level argument parser.
 
     Returns
     -------
     argparse.ArgumentParser
-        Configured parser instance.
+        Configured parser instance with all CLI subcommands.
     """
     parser = argparse.ArgumentParser(
-        description="Nariahs Project – Chuck Norris Jokes CLI powered by https://api.chucknorris.io/"
+        description=(
+            "Nariah’s Project – Chuck Norris Jokes CLI "
+            "powered by https://api.chucknorris.io/"
+        )
     )
 
     subparsers = parser.add_subparsers(
@@ -129,12 +165,23 @@ def build_parser() -> argparse.ArgumentParser:
     )
     search_parser.set_defaults(func=search_command)
 
+    # from-category
+    from_cat_parser = subparsers.add_parser(
+        "from-category",
+        help="Get a random joke from a specific category.",
+    )
+    from_cat_parser.add_argument(
+        "category",
+        help="Name of the joke category (example: dev).",
+        type=str,
+    )
+    from_cat_parser.set_defaults(func=from_category_command)
+
     return parser
 
 
 def main(argv: list[str] | None = None) -> None:
-    """
-    Entry point for the CLI.
+    """Entry point for the CLI.
 
     Parameters
     ----------
@@ -144,9 +191,9 @@ def main(argv: list[str] | None = None) -> None:
     """
     parser = build_parser()
     args = parser.parse_args(argv)
+    # Each subcommand registers its handler via set_defaults(func=...)
     args.func(args)
 
 
 if __name__ == "__main__":
     main()
-
